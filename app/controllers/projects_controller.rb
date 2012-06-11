@@ -38,6 +38,7 @@ class ProjectsController < ApplicationController
           @down_count = @active_projects.size + @hidden_projects.size + @completed_projects.size
           cookies[:mobile_url]= {:value => request.fullpath, :secure => SITE_CONFIG['secure_cookies']}
         end
+        format.json  { render :json => @projects.to_json( :except => :user_id ) }
         format.xml   { render :xml => @projects.all.to_xml( :except => :user_id )  }
         format.rss   do
           @feed_title = I18n.t('models.project.feed_title')
@@ -166,6 +167,14 @@ class ProjectsController < ApplicationController
           xml.done { @done.each { |child| child.to_xml(:builder => xml, :skip_instruct => true) } }
         }
       end
+      format.json   do
+        render :json => @project.to_json(:except => :user_id) { |json|
+          json.not_done { @not_done.each { |child| child.to_json(:builder => json, :skip_instruct => true) } }
+          json.deferred { @deferred.each { |child| child.to_json(:builder => json, :skip_instruct => true) } }
+          json.pending { @pending.each { |child| child.to_json(:builder => json, :skip_instruct => true) } }
+          json.done { @done.each { |child| child.to_json(:builder => json, :skip_instruct => true) } }
+        }
+      end
     end
   end
 
@@ -186,6 +195,13 @@ class ProjectsController < ApplicationController
       format.xml do
         if @project.new_record?
           render_failure @project.errors.to_xml.html_safe, 409
+        else
+          head :created, :location => project_url(@project), :text => @project.id
+        end
+      end
+      format.json do
+        if @project.new_record?
+          render_failure @project.errors.to_json.html_safe, 409
         else
           head :created, :location => project_url(@project), :text => @project.id
         end
@@ -251,6 +267,13 @@ class ProjectsController < ApplicationController
           render :text => "Error on update: #{@project.errors.full_messages.inject("") {|v, e| v + e + " " }}", :status => 409
         end
       }
+      format.json {
+        if @saved
+          render :json => @project.to_json( :except => :user_id )
+        else
+          render :text => "Error on update: #{@project.errors.full_messages.inject("") {|v, e| v + e + " " }}", :status => 409
+        end
+      }
     end
 
   end
@@ -271,6 +294,7 @@ class ProjectsController < ApplicationController
         update_state_counts
       }
       format.xml { render :text => "Deleted project #{@project.name}" }
+      format.json { render :text => "Deleted project #{@project.name}" }
     end
   end
 
